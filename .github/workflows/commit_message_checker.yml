@@ -10,37 +10,10 @@ jobs:
   check-commit-messages:
     runs-on: ubuntu-latest
     steps:
-      - name: Install GitHub CLI
-        uses: actions/checkout@v4
-
-      - name: Authenticate GitHub CLI
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Validate Commit Messages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate Squash Commit Message (PR Title)
         run: |
-          # Get all commit SHAs in the PR using GitHub API
-          commits=$(gh pr view ${{ github.event.pull_request.number }} --json commits -q ".commits[].oid")
-
-          FAIL=false
-          for sha in $commits; do
-            commit_message=$(git log --format=%s -n 1 $sha)
-
-            # Validate commit message format
-            if ! [[ "$commit_message" =~ ^[^\n]{1,50}$ && "$commit_message" =~ SCRUM[0-9]+ ]]; then
-              echo "Invalid commit message: $commit_message"
-              FAIL=true
-            fi
-          done
-
-          if [ "$FAIL" = true ]; then
-            echo "One or more commit messages are invalid. Please fix them."
+          pr_title="${{ github.event.pull_request.title }}"
+          if ! [[ "$pr_title" =~ ^[^\n]{1,50}$ && "$pr_title" =~ SCRUM[0-9]+ ]]; then
+            echo "Invalid PR title for squash commit: $pr_title"
             exit 1
           fi
