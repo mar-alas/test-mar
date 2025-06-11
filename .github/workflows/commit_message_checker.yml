@@ -1,0 +1,37 @@
+name: Commit Message Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/*
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Validate Commit Messages
+        run: |
+          # Get the list of commits in the PR
+          commits=$(git log --pretty=format:"%H %s" HEAD~$(git rev-list --count HEAD)..HEAD)
+
+          # Loop through each commit and validate the message format
+          FAIL=false
+          echo "$commits" | while read -r commit; do
+            commit_hash=$(echo "$commit" | cut -d' ' -f1)
+            commit_message=$(echo "$commit" | cut -d' ' -f2-)
+
+            # Validate commit message format
+            if ! [[ "$commit_message" =~ ^[^\n]{1,50}$ && "$commit_message" =~ SCRUM[0-9]+ ]]; then
+              echo "Invalid commit message: $commit_message"
+              FAIL=true
+            fi
+          done
+
+          if [ "$FAIL" = true ]; then
+            echo "One or more commit messages are invalid. Please fix them."
+            exit 1
+          fi
