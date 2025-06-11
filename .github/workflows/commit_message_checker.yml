@@ -10,11 +10,8 @@ jobs:
   check-commit-messages:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Install GitHub CLI
-        uses: cli/cli@v3
+        uses: actions/setup-gh@v4
 
       - name: Validate Commit Messages
         env:
