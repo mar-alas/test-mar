@@ -1,0 +1,40 @@
+name: Commit Message Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/*
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install GitHub CLI
+        uses: cli/cli@v3
+
+      - name: Validate Commit Messages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all commit SHAs in the PR using GitHub API
+          commits=$(gh pr view ${{ github.event.pull_request.number }} --json commits -q ".commits[].oid")
+
+          FAIL=false
+          for sha in $commits; do
+            commit_message=$(git log --format=%s -n 1 $sha)
+
+            # Validate commit message format
+            if ! [[ "$commit_message" =~ ^[^\n]{1,50}$ && "$commit_message" =~ SCRUM[0-9]+ ]]; then
+              echo "Invalid commit message: $commit_message"
+              FAIL=true
+            fi
+          done
+
+          if [ "$FAIL" = true ]; then
+            echo "One or more commit messages are invalid. Please fix them."
+            exit 1
+          fi
