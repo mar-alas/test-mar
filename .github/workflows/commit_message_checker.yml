@@ -1,0 +1,28 @@
+name: Commit Message Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/*
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Squash Commit Message (PR Title)
+        run: |
+          pr_title="${{ github.event.pull_request.title }}"
+          if [[ "$pr_title" =~ NO_CR ]]; then
+            if ! [[ "$pr_title" =~ ^[^\n]{1,50}$ ]]; then
+              echo "Invalid PR title for squash commit: $pr_title"
+              echo "Expected: Single line, max 50 characters. 'NO_CR' present, so SCRUM code not required."
+              exit 1
+            fi
+          else
+            if ! [[ "$pr_title" =~ ^[^\n]{1,50}$ && "$pr_title" =~ SCRUM[0-9]+ ]]; then
+              echo "Invalid PR title for squash commit: $pr_title"
+              echo "Expected: Single line, max 50 characters, must include 'SCRUM' followed by digits (e.g., 'SCRUM123: short description'), or 'NO_CR' if no SCRUM code applies."
+              exit 1
+            fi
+          fi
