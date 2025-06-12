@@ -1,0 +1,88 @@
+name: Commit Message Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/*
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Squash Commit Message (PR Title)
+        run: |
+          pr_title="${{ github.event.pull_request.title }}"
+          if [[ "$pr_title" =~ NO_CR ]]; then
+            # Only check for single line if needed, but no length restriction
+            if [[ "$pr_title" =~ $'\n' ]]; then
+              echo "Invalid PR title for squash commit: $pr_title"
+              echo "Expected: Single line. 'NO_CR' present, so SCRUM code not required."
+              exit 1
+            fi
+          else
+            if ! [[ "$pr_title" =~ SCRUM[0-9]+ ]]; then
+              echo "Invalid PR title for squash commit: $pr_title"
+              echo "Expected: Must include 'SCRUM' followed by digits (e.g., 'SCRUM123: short description'), or 'NO_CR' if no SCRUM code applies."
+              exit 1
+            fi
+            if [[ "$pr_title" =~ $'\n' ]]; then
+              echo "Invalid PR title for squash commit: $pr_title"
+              echo "Expected: Single line."
+              exit 1
+            fi
+          fi
+      
+      - name: Install GitHub CLI
+        uses: actions/checkout@v4
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Validate Commit Messages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the latest commit message (the squash commit message)
+          latest_commit_sha=$(git rev-parse HEAD)
+          commit_message=$(git log --format=%B -n 1 $latest_commit_sha)
+
+          # Split commit message into subject and body
+          subject=$(echo "$commit_message" | head -n1)
+          body=$(echo "$commit_message" | tail -n +2 | sed '/^\s*$/d')
+
+          # Check for subject and body
+          if [[ -z "$subject" || -z "$body" ]]; then
+            echo "Validating commit message:"
+            echo "-------------------------"
+            echo "$commit_message"
+            echo "-------------------------"
+            echo "Commit message must have a subject and a description (body)."
+            exit 1
+          fi
+
+          branch_name="${{ github.event.pull_request.base.ref }}"
+
+          if [[ "$branch_name" == main ]]; then
+            # On main, no SCRUM or NO_CR required
+            exit 0
+          else
+            if ! echo "$body" | grep -q "SCRUM[0-9]\+"; then
+              echo "Validating commit message:"
+              echo "-------------------------"
+              echo "$commit_message"
+              echo "-------------------------"
+              echo "Commit message body must include 'SCRUM<num>' (e.g., SCRUM123) or 'NO_CR'."
+              exit 1
+            fi
+            if ! echo "$body" | grep -q "SCRUM[0-9]\+"; then
+              echo "Commit message body must include 'SCRUM<num>' (e.g., SCRUM123) or 'NO_CR'."
+              exit 1
+            fi
+          fi
